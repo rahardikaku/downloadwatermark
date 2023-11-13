@@ -8714,29 +8714,33 @@ __webpack_require__.r(__webpack_exports__);
 
 
 OCA.Files.fileActions.registerAction({
-  name: 'myPdfAction',
-  displayName: t('my-app-id', 'My PDF action'),
+  name: 'DownloadSalinan',
+  displayName: 'Download Salinan',
   mime: 'application/pdf',
+  type: OCA.Files.FileActions.TYPE_INLINE,
   permissions: OC.PERMISSION_READ,
   iconClass: 'icon-file',
   actionHandler: async (name, context) => {
-    // console.debug('anr resp ', resp)
-    // OC.dialogs.info('The PDF file "' + name + '" has a size of ' + context.fileInfoModel.attributes.size, 'My PDF action')
+    const downloadFileaction = $(context.$file).find('.fileactions .action-download');
+    // don't allow a second click on the download action
+    if (downloadFileaction.hasClass('disabled')) {
+      return;
+    }
+    context.fileList.showFileBusyState(name, true);
     const id = context.fileInfoModel.attributes.id;
     const url = (0,_nextcloud_router__WEBPACK_IMPORTED_MODULE_1__.generateOcsUrl)('apps/fileswm/api/v1/fileswm/{id}', {
       id
     });
-    console.debug('anr is here ', url);
     _nextcloud_axios__WEBPACK_IMPORTED_MODULE_0__["default"].get(url, {
       responseType: 'blob'
     }).then(res => {
-      console.debug('res ', res);
       const url = window.URL.createObjectURL(res.data);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', name);
       document.body.appendChild(link);
       link.click();
+      context.fileList.showFileBusyState(name, false);
     });
   }
 });

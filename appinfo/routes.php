@@ -16,6 +16,6 @@ $requirements = [
  */
 return [
 	'ocs' => [
-        ['name' => 'filesWm#downloadWithWatermark', 'url' => '/api/{apiVersion}/fileswm/{id}', 'verb' => 'GET', 'requirements' => $requirements],
+        ['name' => 'filesWm#newDownloadWithWaterMark', 'url' => '/api/{apiVersion}/fileswm/{id}', 'verb' => 'GET', 'requirements' => $requirements],
     ],
 ];

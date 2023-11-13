@@ -23,52 +23,77 @@ class FilesWmController extends OCSController {
         parent::__construct($appName, $request);
     }
 
-    /**
+	/**
      * @NoAdminRequired
      * @param int $iddoc
      * @return DataResponse
      */
-    public function downloadWithWatermark(int $id): DataResponse {
+	public static function newDownloadWithWaterMark(int $id): DataResponse {
 		// initiate FPDI
 		$pdf = new Fpdi();
 		$a = \OC::$server->getRootFolder()->getById($id);
 		$file = $a[0];
-		// $fileInput = '/var/www/html/data' . $file->getPath();
-		// var_dump($fileInput);
-		if ($file instanceof File) {
-			// header("Content-Type: application/octet-stream"); 			
-			// header("Content-Disposition: attachment; filename=" . "ANO.pdf");    
-			// header("Content-Type: application/download"); 
-			// header("Content-Description: File Transfer");             
-			// header("Content-Length: " . filesize($file)); 
-			
-			$newfname = 'tempFile'.date("Y-m-d h:m:s").'.pdf';
-			$source = $file->fopen('rb');
-			$newf = fopen ("/var/www/html/data/" . $newfname, 'wb');
-			// $pages_count = $pdf->setSourceFile(new StreamReader($source));
-			while (!feof($source)) { 
-				fwrite($newf, fread($source, 65536));
-				// echo fread($source, 65536); 
-				flush(); // This is essential for large downloads 
-			}  
-			fclose($source);
-			if ($newf) {
-				fclose($newf);
-			}
-
-			$file = fopen("/var/www/html/data/" . $newfname, 'rb');
-			if($file) {
-				// $newPdfF = fopen("_data/$pdfName", 'wb');
-				$pdf = new Fpdi();
-				$pageCount = $pdf->setSourceFile($file);
-				// if($newPdfF) {
-				// 	// Now let us use this file to try and remove the bottom logos.
-					
-				// }
-			}
-
+	
+		$source = $file->fopen('rb');
+		if($source) {
+			$line_first = fgets($source);
 		}
-		// $path = $file->getPath();
-		// var_dump($source);
-    }
+		else{
+			echo "error opening the file.";
+		}
+		// extract number such as 1.4,1.5 from first read line of pdf file
+		preg_match_all('!\d+!', $line_first, $matches);
+							
+		// save that number in a variable
+		$pdfversion = implode('.', $matches[0]);
+		$file_fullname = $file->getName();
+		// var_dump($pdfversion);
+		if($pdfversion > "1.4"){
+			fclose($source);
+			$fileInput = $file->stat()['full_path'];
+			$tmp = explode('.',$file_fullname);
+			$n = count($tmp);
+			$file_name = $tmp[0];
+			$file_extension = $tmp[$n-1];
+			$file_new_fullname = $file_name . '_tmp.' . $file_extension; 
+			$fileOutput = str_replace($file_fullname,$file_new_fullname,$fileInput);
+			shell_exec('gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="'.$fileOutput.'" "'.$fileInput.'"'); 
+			$pagecount = $pdf->setSourceFile($fileOutput);
+			self::loopPages($pdf,$pagecount);
+			$pdf->Output('D',$file_fullname);
+			$new_file = fopen($fileOutput,'w');
+			fclose($new_file);
+			unlink($fileOutput);
+		} else {
+			$pagecount = $pdf->setSourceFile($source);
+			self::loopPages($pdf,$pagecount);
+			$pdf->Output('D',$file_fullname);
+			fclose($source);
+		}
+	}
+
+	static function loopPages($pdf,$pagecount){
+		for ($i = 1; $i <= $pagecount; $i ++) {
+			$pdf->AddPage();
+			$tplIdx = $pdf->importPage($i);
+			$pdf->useTemplate($tplIdx, 0, 0);
+			$pdf->SetFont('Times', 'B', 70);
+			$pdf->SetTextColor(192, 192, 192);
+			$pdf->SetTextColor(255,192,203);
+			$watermarkText = 'S A L I N A N';
+			self::addWatermark(105, 220, $watermarkText, 45, $pdf);
+			$pdf->SetXY(25, 25);
+		}
+	}
+
+	static function addWatermark($x, $y, $watermarkText, $angle, $pdf){
+		$angle = $angle * M_PI / 180;
+		$c = cos($angle);
+		$s = sin($angle);
+		$cx = $x * 1;
+		$cy = (300 - $y) * 1;
+		$pdf->_out(sprintf('q %.5F %.5F %.5F %.5F %.2F %.2F cm 1 0 0 1 %.2F %.2F cm', $c, $s, - $s, $c, $cx, $cy, - $cx, - $cy));
+		$pdf->Text($x, $y, $watermarkText);
+		$pdf->_out('Q');
+	}
 }

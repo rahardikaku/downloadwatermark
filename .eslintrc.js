@@ -3,5 +3,8 @@
 module.exports = {
 	extends: [
 		'@nextcloud',
-	]
+	],
+	env: {
+		jquery: true
+	},
 }
